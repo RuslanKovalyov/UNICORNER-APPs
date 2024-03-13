@@ -1,5 +1,7 @@
 # This structure supports the microservices architecture principle, promoting service autonomy and minimizing inter-service dependencies.
 
+#1 STRUCTURE:
+```
 UNICORNER-APPs/              # Root directory for the entire project
 │
 ├── warehouse-service/       # Warehouse service directory
@@ -25,3 +27,4 @@ UNICORNER-APPs/              # Root directory for the entire project
 ├── README.md                # Project README
 │
 └── docker-compose.yml       # Docker-compose file to orchestrate your services (if using Docker)
+```
