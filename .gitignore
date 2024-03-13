@@ -1,0 +1,9 @@
+# Hidden
+.DS_Store
+
+# env, caches and databases
+venv
+__pycache__
+*.sqlite3
+
+# warehouse service
