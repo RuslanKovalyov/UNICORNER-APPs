@@ -1,9 +1,13 @@
 # Hidden
 .DS_Store
 
-# env, caches and databases
+# env, caches, build files, databases, etc.
 venv
 __pycache__
+build
+dist
+*.spec
 *.sqlite3
 
 # warehouse service
+*.png
