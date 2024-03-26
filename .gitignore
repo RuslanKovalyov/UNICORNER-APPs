@@ -8,6 +8,7 @@ build
 dist
 *.spec
 *.sqlite3
+*.db
 
 # warehouse service
 *.png
