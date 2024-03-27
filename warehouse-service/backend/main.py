@@ -1,90 +1,72 @@
 from fastapi import FastAPI
 from pydantic import BaseModel
 import sqlite3
-import json
 
-sqlite3.connect('inventory.db')
+app = FastAPI()
 
 class Item(BaseModel):
-    id: int
     name: str
     quantity: int
     description: str = None
 
-# create tables in the database
-conn = sqlite3.connect('inventory.db')
-c = conn.cursor()
-c.execute('CREATE TABLE IF NOT EXISTS items (id INTEGER PRIMARY KEY, name TEXT, quantity INTEGER, description TEXT)')
-conn.commit()
-conn.close()
+def get_db_connection():
+    conn = sqlite3.connect('inventory.db')
+    conn.row_factory = sqlite3.Row
+    return conn
 
-app = FastAPI()
-# app = FastAPI(docs_url=None, redoc_url=None)
-
-# mplement CRUD operations:
-
-@app.get("/")
-def read_root():
-    return {"Hello": "Warehouse-Service"}
+@app.on_event("startup")
+def startup():
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS items (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, 
+            name TEXT, 
+            quantity INTEGER, 
+            description TEXT
+        )
+    ''')
+    conn.commit()
+    conn.close()
 
 @app.get("/items/")
 async def read_items():
-    conn = sqlite3.connect('inventory.db')
+    conn = get_db_connection()
     c = conn.cursor()
     c.execute('SELECT * FROM items')
-    items = c.fetchall()
+    items = [dict(item) for item in c.fetchall()]
     conn.close()
-    return json.loads(json.dumps({item[0]: {"id": item[0], "name": item[1], "quantity": item[2], "description": item[3]} for item in items}))
+    return items
 
 @app.post("/items/")
 async def create_item(item: Item):
-    conn = sqlite3.connect('inventory.db')
+    conn = get_db_connection()
     c = conn.cursor()
-    c.execute('INSERT INTO items (id, name, quantity, description) VALUES (?, ?, ?, ?)', (item.id, item.name, item.quantity, item.description))
+    c.execute('INSERT INTO items (name, quantity, description) VALUES (?, ?, ?)', 
+              (item.name, item.quantity, item.description))
     conn.commit()
+    new_id = c.lastrowid  # Get the auto-generated ID of the newly created item
     conn.close()
-    return json.loads(json.dumps({"id": item.id, "name": item.name, "quantity": item.quantity, "description": item.description}))
+    return {"id": new_id, "name": item.name, "quantity": item.quantity, "description": item.description}
 
 @app.put("/items/{item_id}")
 async def update_item(item_id: int, item: Item):
-    conn = sqlite3.connect('inventory.db')
+    conn = get_db_connection()
     c = conn.cursor()
-    c.execute('UPDATE items SET name = ?, quantity = ?, description = ? WHERE id = ?', (item.name, item.quantity, item.description, item_id))
+    c.execute('UPDATE items SET name = ?, quantity = ?, description = ? WHERE id = ?', 
+              (item.name, item.quantity, item.description, item_id))
     conn.commit()
     conn.close()
-    return json.loads(json.dumps({"id": item_id, "name": item.name, "quantity": item.quantity, "description": item.description}))
-
-@app.put("/items/{item_id}/increase/{quantity}")
-async def increase_quantity(item_id: int, quantity: int):
-    conn = sqlite3.connect('inventory.db')
-    c = conn.cursor()
-    c.execute('SELECT * FROM items WHERE id = ?', (item_id,))
-    item = c.fetchone()
-    c.execute('UPDATE items SET quantity = ? WHERE id = ?', (item[2] + quantity, item_id))
-    conn.commit()
-    conn.close()
-    return json.loads(json.dumps({"id": item[0], "name": item[1], "quantity": item[2] + quantity, "description": item[3]}))
-
-@app.put("/items/{item_id}/subtract/{quantity}")
-async def subtract_quantity(item_id: int, quantity: int):
-    conn = sqlite3.connect('inventory.db')
-    c = conn.cursor()
-    c.execute('SELECT * FROM items WHERE id = ?', (item_id,))
-    item = c.fetchone()
-    c.execute('UPDATE items SET quantity = ? WHERE id = ?', (item[2] - quantity, item_id))
-    conn.commit()
-    conn.close()
-    return json.loads(json.dumps({"id": item[0], "name": item[1], "quantity": item[2] - quantity, "description": item[3]}))
+    return {"id": item_id, "name": item.name, "quantity": item.quantity, "description": item.description}
 
 @app.delete("/items/{item_id}")
 async def delete_item(item_id: int):
-    conn = sqlite3.connect('inventory.db')
+    conn = get_db_connection()
     c = conn.cursor()
     c.execute('DELETE FROM items WHERE id = ?', (item_id,))
     conn.commit()
     conn.close()
     return {"message": "Item deleted"}
-
 
 
 #// Run the server
