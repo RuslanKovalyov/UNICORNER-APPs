@@ -9,7 +9,8 @@ class InventoryApp(QMainWindow):
         super().__init__()
         self.setWindowTitle("Inventory Management")
         self.setWindowIcon(QIcon('GUI.bird.png'))
-        self.setGeometry(100, 100, 1200, 800)
+        self.setGeometry(400, 100, 800, 600)
+        self.checkboxes = []  # Keep track of checkboxes and their associated items
         self.initUI()
 
     def initUI(self):
@@ -67,6 +68,7 @@ class InventoryApp(QMainWindow):
     def displayItems(self, items):
         header_labels = ["Select", "ID", "Name", "Quantity", "Description"]
         self.addHeaderRow(header_labels)
+        self.checkboxes.clear()  # Clear the list of checkboxes for new items
 
         is_even = False
         for item in items:
@@ -95,6 +97,7 @@ class InventoryApp(QMainWindow):
     def addItemRow(self, item_data, is_even):
         row_layout = QHBoxLayout()
         checkbox = QCheckBox()
+        self.checkboxes.append((checkbox, item_data['id'], item_data['name']))  # Store the checkbox, item's ID, and name
         checkbox.setFixedSize(60, 20)
         row_layout.addWidget(checkbox)
 
@@ -150,10 +153,49 @@ class InventoryApp(QMainWindow):
                 QMessageBox.warning(self, "Error", f"An error occurred: {str(e)}")
         else:
             QMessageBox.warning(self, "Error", "All fields are required.")
-
+    
     def deleteItem(self):
-        print("Delete Item")
+        selected_items = [(checkbox, item_id, name) for checkbox, item_id, name in self.checkboxes if checkbox.isChecked()]
+        if not selected_items:
+            QMessageBox.warning(self, "Error", "No items selected for deletion.")
+            return
 
+        item_list = '\n'.join([name for _, _, name in selected_items])
+        confirm_msg = f"You are about to delete the following items:\n\n{item_list}\n\nType 'delete' to confirm:"
+
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Confirm Delete")
+        layout = QVBoxLayout(dialog)
+
+        layout.addWidget(QLabel(confirm_msg))
+
+        confirm_edit = QLineEdit()
+        layout.addWidget(confirm_edit)
+
+        button_box = QHBoxLayout()
+        delete_button = QPushButton("Delete")
+        delete_button.clicked.connect(lambda: self.confirmDeletion(selected_items, confirm_edit.text(), dialog))
+        button_box.addWidget(delete_button)
+
+        cancel_button = QPushButton("Cancel")
+        cancel_button.clicked.connect(dialog.reject)
+        button_box.addWidget(cancel_button)
+
+        layout.addLayout(button_box)
+        dialog.setLayout(layout)
+        dialog.exec_()
+
+    def confirmDeletion(self, selected_items, typed_text, dialog):
+        if typed_text.lower() == "delete":
+            for _, item_id, _ in selected_items:
+                response = requests.delete(f'http://127.0.0.1:8000/items/{item_id}')
+                if response.status_code not in [200, 204]:
+                    QMessageBox.warning(self, "Error", f"Failed to delete item. {response.text}")
+            dialog.accept()
+            self.readItems()  # Refresh the item list after deletion
+        else:
+            QMessageBox.warning(self, "Error", "Deletion canceled. You must type 'delete' to confirm.")
+    
     def updateItem(self):
         print("Update Item")
 
