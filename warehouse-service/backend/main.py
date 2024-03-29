@@ -92,6 +92,16 @@ async def update_item(item_id: int, item: Item):
     conn.close()
     return {"id": item_id, "name": item.name, "quantity": item.quantity, "description": item.description}
 
+@app.put("/products/{product_id}")
+async def update_product(product_id: int, product: Product):
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute('UPDATE products SET name = ?, quantity = ?, description = ? WHERE id = ?', 
+              (product.name, product.quantity, product.description, product_id))
+    conn.commit()
+    conn.close()
+    return {"id": product_id, "name": product.name, "quantity": product.quantity, "description": product.description}
+
 @app.delete("/items/{item_id}")
 async def delete_item(item_id: int):
     conn = get_db_connection()
@@ -101,6 +111,14 @@ async def delete_item(item_id: int):
     conn.close()
     return {"message": "Item deleted"}
 
+@app.delete("/products/{product_id}")
+async def delete_product(product_id: int):
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute('DELETE FROM products WHERE id = ?', (product_id,))
+    conn.commit()
+    conn.close()
+    return {"message": "Product deleted"}
 
 #// Run the server
 # cd backend
