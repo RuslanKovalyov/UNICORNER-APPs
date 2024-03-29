@@ -9,6 +9,11 @@ class Item(BaseModel):
     quantity: int
     description: str = None
 
+class Product(BaseModel):
+    name: str
+    quantity: int
+    description: str = None
+
 def get_db_connection():
     conn = sqlite3.connect('inventory.db')
     conn.row_factory = sqlite3.Row
@@ -51,7 +56,7 @@ async def read_products():
     conn = get_db_connection()
     c = conn.cursor()
     c.execute('SELECT * FROM products')
-    products = [dict(item) for item in c.fetchall()]
+    products = [dict(product) for product in c.fetchall()]
     conn.close()
     return products
 
@@ -65,6 +70,17 @@ async def create_item(item: Item):
     new_id = c.lastrowid  # Get the auto-generated ID of the newly created item
     conn.close()
     return {"id": new_id, "name": item.name, "quantity": item.quantity, "description": item.description}
+
+@app.post("/products/")
+async def create_product(product: Product):
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute('INSERT INTO products (name, quantity, description) VALUES (?, ?, ?)', 
+              (product.name, product.quantity, product.description))
+    conn.commit()
+    new_id = c.lastrowid  # Get the auto-generated ID of the newly created product
+    conn.close()
+    return {"id": new_id, "name": product.name, "quantity": product.quantity, "description": product.description}
 
 @app.put("/items/{item_id}")
 async def update_item(item_id: int, item: Item):
