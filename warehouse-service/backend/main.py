@@ -26,6 +26,14 @@ def startup():
             description TEXT
         )
     ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS products (
+            id INTEGER PRIMARY KEY AUTOINCREMENT, 
+            name TEXT, 
+            quantity INTEGER, 
+            description TEXT
+        )
+    ''')
     conn.commit()
     conn.close()
 
@@ -37,6 +45,15 @@ async def read_items():
     items = [dict(item) for item in c.fetchall()]
     conn.close()
     return items
+
+@app.get("/products/")
+async def read_products():
+    conn = get_db_connection()
+    c = conn.cursor()
+    c.execute('SELECT * FROM products')
+    products = [dict(item) for item in c.fetchall()]
+    conn.close()
+    return products
 
 @app.post("/items/")
 async def create_item(item: Item):
