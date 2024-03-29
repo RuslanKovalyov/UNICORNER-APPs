@@ -147,7 +147,7 @@ class InventoryApp(QMainWindow):
             if response.status_code == 200:
                 self.current_products = response.json()
                 self.clearLayout(self.scrollLayout)
-                self.displayItems(self.current_products)
+                self.displayProducts(self.current_products)
             else:
                 QMessageBox.warning(self, "Error", "Failed to fetch products from the server.")
         except requests.exceptions.RequestException as e:
@@ -199,17 +199,82 @@ class InventoryApp(QMainWindow):
         checkbox.setFixedSize(60, 20)
         row_layout.addWidget(checkbox)
 
-        details = [item_data.get('id'), item_data.get('name'), item_data.get('quantity'), item_data.get('description')]
-        widths = [60, 200, 100, 300]
-        for detail, width in zip(details, widths):
-            label = QLabel(str(detail))
-            label.setFixedSize(width, 20)
-            bgColor = '#333333' if is_even else '#444444'
-            label.setStyleSheet(f"background-color: {bgColor}; color: white;")
-            row_layout.addWidget(label)
+        id_label = QLabel(str(item_data.get('id')))
+        id_label.setFixedSize(60, 20)
+        name_label = QLabel(item_data.get('name'))
+        name_label.setFixedSize(200, 20)
+
+        # Making quantity label clickable
+        quantity_button = QPushButton(str(item_data.get('quantity')))
+        quantity_button.setFixedSize(100, 20)
+        quantity_button.clicked.connect(lambda: self.updateItemQuantity(item_data['id']))
+
+        description_label = QLabel(item_data.get('description'))
+        description_label.setFixedSize(300, 20)
+
+        bgColor = '#333333' if is_even else '#444444'
+        for widget in [id_label, name_label, quantity_button, description_label]:
+            widget.setStyleSheet(f"background-color: {bgColor}; color: white;")
+
+        for widget in [id_label, name_label, quantity_button, description_label]:
+            row_layout.addWidget(widget)
 
         self.scrollLayout.addLayout(row_layout)
-        
+
+    def updateItemQuantity(self, item_id):
+        # Attempt to fetch the current item details directly
+        try:
+            response = requests.get(f'http://127.0.0.1:8000/items/{item_id}')
+            if response.status_code == 200:
+                item = response.json()
+            else:
+                # If the direct fetch fails, fetch all items and filter
+                all_items_response = requests.get('http://127.0.0.1:8000/items/')
+                if all_items_response.status_code == 200:
+                    all_items = all_items_response.json()
+                    item = next((i for i in all_items if i['id'] == item_id), None)
+                    if item is None:
+                        QMessageBox.warning(self, "Error", "Item not found.")
+                        return
+                else:
+                    QMessageBox.warning(self, "Error", "Failed to fetch item details.")
+                    return
+        except requests.exceptions.RequestException as e:
+            QMessageBox.warning(self, "Error", f"An error occurred: {str(e)}")
+            return
+
+        # Continue with showing the dialog to update the quantity
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Update Quantity")
+        layout = QVBoxLayout(dialog)
+
+        quantity_edit = QLineEdit(str(item['quantity']))
+        layout.addWidget(QLabel(f"{item['name']}\n\nCurrent Quantity: {item['quantity']}"))
+        layout.addWidget(QLabel("New Quantity:"))
+        layout.addWidget(quantity_edit)
+
+        save_button = QPushButton("Update")
+        save_button.clicked.connect(lambda: self.saveUpdatedItemQuantity(item['id'], item['name'], quantity_edit.text(), item['description'], dialog))
+        layout.addWidget(save_button)
+
+        dialog.setLayout(layout)
+        dialog.exec_()
+    
+    def saveUpdatedItemQuantity(self, item_id, name, new_quantity, description, dialog):
+        try:
+            new_quantity = int(new_quantity)
+            data = {'name': name, 'quantity': new_quantity, 'description': description}
+            response = requests.put(f'http://127.0.0.1:8000/items/{item_id}', json=data)
+            if response.status_code in [200, 204]:
+                dialog.accept()
+                self.readItems()  # Refresh the item list
+            else:
+                QMessageBox.warning(self, "Error", f"Failed to update the quantity. {response.text}")
+        except ValueError:
+            QMessageBox.warning(self, "Error", "Quantity must be an integer.")
+        except requests.exceptions.RequestException as e:
+            QMessageBox.warning(self, "Error", f"An error occurred: {str(e)}")
+
     def addProductRow(self, product_data, is_even):
         row_layout = QHBoxLayout()
         checkbox = QCheckBox()
@@ -217,17 +282,82 @@ class InventoryApp(QMainWindow):
         checkbox.setFixedSize(60, 20)
         row_layout.addWidget(checkbox)
 
-        details = [product_data.get('id'), product_data.get('name'), product_data.get('quantity'), product_data.get('description')]
-        widths = [60, 200, 100, 300]
-        for detail, width in zip(details, widths):
-            label = QLabel(str(detail))
-            label.setFixedSize(width, 20)
-            bgColor = '#333333' if is_even else '#444444'
-            label.setStyleSheet(f"background-color: {bgColor}; color: white;")
-            row_layout.addWidget(label)
+        id_label = QLabel(str(product_data.get('id')))
+        id_label.setFixedSize(60, 20)
+        name_label = QLabel(product_data.get('name'))
+        name_label.setFixedSize(200, 20)
+
+        # Making quantity label clickable
+        quantity_button = QPushButton(str(product_data.get('quantity')))
+        quantity_button.setFixedSize(100, 20)
+        quantity_button.clicked.connect(lambda: self.updateProductQuantity(product_data['id']))
+
+        description_label = QLabel(product_data.get('description'))
+        description_label.setFixedSize(300, 20)
+
+        bgColor = '#333333' if is_even else '#444444'
+        for widget in [id_label, name_label, quantity_button, description_label]:
+            widget.setStyleSheet(f"background-color: {bgColor}; color: white;")
+
+        for widget in [id_label, name_label, quantity_button, description_label]:
+            row_layout.addWidget(widget)
 
         self.scrollLayout.addLayout(row_layout)
+        
+    def updateProductQuantity(self, product_id):
+        # Attempt to fetch the current product details directly
+        try:
+            response = requests.get(f'http://127.0.0.1:8000/products/{product_id}')
+            if response.status_code == 200:
+                product = response.json()
+            else:
+                # If the direct fetch fails, fetch all products and filter
+                all_products_response = requests.get('http://127.0.0.1:8000/products/')
+                if all_products_response.status_code == 200:
+                    all_products = all_products_response.json()
+                    product = next((i for i in all_products if i['id'] == product_id), None)
+                    if product is None:
+                        QMessageBox.warning(self, "Error", "Product not found.")
+                        return
+                else:
+                    QMessageBox.warning(self, "Error", "Failed to fetch product details.")
+                    return
+        except requests.exceptions.RequestException as e:
+            QMessageBox.warning(self, "Error", f"An error occurred: {str(e)}")
+            return
+
+        # Continue with showing the dialog to update the quantity
+        dialog = QDialog(self)
+        dialog.setWindowTitle("Update Quantity")
+        layout = QVBoxLayout(dialog)
+
+        quantity_edit = QLineEdit(str(product['quantity']))
+        layout.addWidget(QLabel(f"{product['name']}\n\nCurrent Quantity: {product['quantity']}"))
+        layout.addWidget(QLabel("New Quantity:"))
+        layout.addWidget(quantity_edit)
+
+        save_button = QPushButton("Update")
+        save_button.clicked.connect(lambda: self.saveUpdatedProductQuantity(product['id'], product['name'], quantity_edit.text(), product['description'], dialog))
+        layout.addWidget(save_button)
+
+        dialog.setLayout(layout)
+        dialog.exec_()
     
+    def saveUpdatedProductQuantity(self, product_id, name, new_quantity, description, dialog):
+        try:
+            new_quantity = int(new_quantity)
+            data = {'name': name, 'quantity': new_quantity, 'description': description}
+            response = requests.put(f'http://127.0.0.1:8000/products/{product_id}', json=data)
+            if response.status_code in [200, 204]:
+                dialog.accept()
+                self.readProducts()  # Refresh the product list
+            else:
+                QMessageBox.warning(self, "Error", f"Failed to update the quantity. {response.text}")
+        except ValueError:
+            QMessageBox.warning(self, "Error", "Quantity must be an integer.")
+        except requests.exceptions.RequestException as e:
+            QMessageBox.warning(self, "Error", f"An error occurred: {str(e)}")
+
     def create(self):
         if self.currentState == 'items':
             self.createItem()
